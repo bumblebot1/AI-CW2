@@ -9,6 +9,12 @@ solve_task(Task,Cost) :-
 %%%%%%%%%% Part 1 & 3 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 solve_task_1_3(Task,Cost) :-
   agent_current_position(oscar,P),
+  solve_task_astar(Task,[[state(0,0,P),P]],R,Cost,_NewPos),!,  % prune choice point for efficiency
+  reverse(R,[_Init|Path]),
+  agent_do_moves(oscar,Path).
+
+solve_task_backtrack(Task,Cost) :-
+  agent_current_position(oscar,P),
   solve_task_bt(Task,[c(0,P),P],0,R,Cost,_NewPos),!,  % prune choice point for efficiency
   reverse(R,[_Init|Path]),
   agent_do_moves(oscar,Path).
@@ -34,6 +40,49 @@ solve_task_bt(Task,Current,D,RR,Cost,NewPos) :-
   D1 is D+1,
   F1 is F+C,
   solve_task_bt(Task,[c(F1,P1),R|RPath],D1,RR,Cost,NewPos).  % backtrack search
+
+solve_task_astar(Task,Agenda,R,CostList,NewPos) :-
+  Agenda = [[state(F,G,Pos)|RPath]|_],
+  CostList = [cost(Cost), depth(G)],
+  achieved(Task,[c(G,Pos)|RPath],R,Cost,NewPos).
+
+solve_task_astar(Task,Agenda,RR,Cost,NewPos) :-
+  Agenda = [[state(F, G, P) | RPath] | RestAgenda],
+  Cur = [state(F, G, P) | RPath],
+  children(P, Children, RPath),
+  (
+    Task = go(Target) -> astar_calculate_costs(Target, Cur, Children, [], ChildCosts);
+    Task = find(Target) -> bf_calculate_costs(Target, Cur, Children, [], ChildCosts)
+  ),
+  append(ChildCosts, RestAgenda, NewAgenda),
+  sort(NewAgenda, Sorted),
+  solve_task_astar(Task, Sorted, RR, Cost, NewPos).
+
+astar_calculate_costs(_, _, [], ChildCosts, ChildCosts).
+astar_calculate_costs(Target, Cur, [Child|Children], TempCosts, ChildCosts) :-
+   Cur = [state(_, OldG, _)|RPath],
+   G is OldG + 1,
+   map_distance(Child, Target, H),
+   F is H + G,
+   astar_calculate_costs(Target, Cur, Children, [[state(F,G,Child)|[Child|RPath]] | TempCosts], ChildCosts).
+
+bf_calculate_costs(_, _, [], ChildCosts, ChildCosts).
+bf_calculate_costs(Target, Cur, [Child | Children], TempCosts, ChildCosts) :-
+   Cur = [state(_, OldG, _)|RPath],
+   G is OldG + 1,
+   bf_calculate_costs(Target, Cur, Children, [[state(G,G,Child)|[Child|RPath]] | TempCosts], ChildCosts).
+
+children(P, Children, RPath) :-
+  setof(Pos, search(P,Pos,Pos,_), UnfilteredChildren),
+  filter_children(UnfilteredChildren, RPath, [], Children).
+
+filter_children([], _, Children, Children).
+filter_children([Child | Rest], RPath, TempChildren, Children) :-
+  (
+    \+ memberchk(Child,RPath) -> filter_children(Rest, RPath, [Child | TempChildren], Children);
+    filter_children(Rest, RPath, TempChildren, Children)
+  ).
+
 
 achieved(go(Exit),Current,RPath,Cost,NewPos) :-
   Current = [c(Cost,NewPos)|RPath],
