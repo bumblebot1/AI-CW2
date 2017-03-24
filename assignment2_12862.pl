@@ -42,46 +42,56 @@ solve_task_bt(Task,Current,D,RR,Cost,NewPos) :-
   solve_task_bt(Task,[c(F1,P1),R|RPath],D1,RR,Cost,NewPos).  % backtrack search
 
 solve_task_astar(Task,Agenda,R,CostList,NewPos) :-
-  Agenda = [[state(F,G,Pos)|RPath]|_],
+  Agenda = [[state(_,G,Pos)|RPath]|_],
   CostList = [cost(Cost), depth(G)],
   achieved(Task,[c(G,Pos)|RPath],R,Cost,NewPos).
 
 solve_task_astar(Task,Agenda,RR,Cost,NewPos) :-
-  Agenda = [[state(F, G, P) | RPath] | RestAgenda],
-  Cur = [state(F, G, P) | RPath],
-  children(P, Children, RPath),
+  Agenda = [ [state(_, G, P) | RPath] | RestAgenda],
   (
-    Task = go(Target) -> astar_calculate_costs(Target, Cur, Children, [], ChildCosts);
-    Task = find(Target) -> bf_calculate_costs(Target, Cur, Children, [], ChildCosts)
+    Task = go(Target) -> astar_children(Target, P, G, Children, RPath);
+    Task = find(_) -> bf_children(P, G, Children, RPath)
   ),
-  append(ChildCosts, RestAgenda, NewAgenda),
-  sort(NewAgenda, Sorted),
-  solve_task_astar(Task, Sorted, RR, Cost, NewPos).
+  add_to_agenda(Children, RestAgenda, NewAgenda),
+  solve_task_astar(Task, NewAgenda, RR, Cost, NewPos).
 
-astar_calculate_costs(_, _, [], ChildCosts, ChildCosts).
-astar_calculate_costs(Target, Cur, [Child|Children], TempCosts, ChildCosts) :-
-   Cur = [state(_, OldG, _)|RPath],
-   G is OldG + 1,
-   map_distance(Child, Target, H),
-   F is H + G,
-   astar_calculate_costs(Target, Cur, Children, [[state(F,G,Child)|[Child|RPath]] | TempCosts], ChildCosts).
+astar_children(Target, P, G, Children, RPath) :-
+  setof(State, (Pos,H) ^ (search(P,Pos,Pos,_), map_distance(Pos,Target,H), generate_state(H,G,Pos,RPath,State)), UnfilteredChildren),
+  filter_children(UnfilteredChildren, RPath, [], Children).
 
-bf_calculate_costs(_, _, [], ChildCosts, ChildCosts).
-bf_calculate_costs(Target, Cur, [Child | Children], TempCosts, ChildCosts) :-
-   Cur = [state(_, OldG, _)|RPath],
-   G is OldG + 1,
-   bf_calculate_costs(Target, Cur, Children, [[state(G,G,Child)|[Child|RPath]] | TempCosts], ChildCosts).
+generate_state(H,G,Pos,RPath,State):-
+  NewG is G + 1,
+  F is NewG + H,
+  State = [state(F,NewG,Pos),Pos|RPath].
 
-children(P, Children, RPath) :-
-  setof(Pos, search(P,Pos,Pos,_), UnfilteredChildren),
+bf_children(P, G, Children, RPath) :-
+  setof(State, (Pos) ^ (search(P,Pos,Pos,_), generate_state(0,G,Pos,RPath,State)), UnfilteredChildren),
   filter_children(UnfilteredChildren, RPath, [], Children).
 
 filter_children([], _, Children, Children).
 filter_children([Child | Rest], RPath, TempChildren, Children) :-
+  Child = [state(_,_,ChildPos) | _],
   (
-    \+ memberchk(Child,RPath) -> filter_children(Rest, RPath, [Child | TempChildren], Children);
+    \+ memberchk(ChildPos,RPath) -> filter_children(Rest, RPath, [Child | TempChildren], Children);
     filter_children(Rest, RPath, TempChildren, Children)
   ).
+
+add_to_agenda([],Agenda,Agenda).
+add_to_agenda([Child|Children],OldAgenda,NewAgenda) :-
+	add_state(Child,OldAgenda,TmpAgenda),
+	add_to_agenda(Children,TmpAgenda,NewAgenda).
+
+add_state(Child,[],[Child]).
+add_state(Child,[Node|Rest],[Child,Node|Rest]) :-
+	Child = [state(ChildF, _, _) | _],
+	Node = [state(NodeF, _, _) | _],
+	ChildF < NodeF.
+
+add_state(Child,[Node|Rest],[Node|NewRest]) :-
+	Child = [state(ChildF, _, _) | _],
+	Node = [state(NodeF, _, _) | _],
+	NodeF =< ChildF,
+	add_state(Child,Rest,NewRest).
 
 
 achieved(go(Exit),Current,RPath,Cost,NewPos) :-
