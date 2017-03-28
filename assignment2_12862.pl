@@ -6,9 +6,20 @@ solve_task(Task,Cost) :-
   ; part(4) -> solve_task_4(Task, Cost)
   ).
 
+
+%%%% data structure of visited nodes
+:-dynamic visited/1.
+
+initialise_dynamics(P):-
+  reset_dynamics,
+  assert(visited(P)).
+
+reset_dynamics :- retractall(visited(_)).
+
 %%%%%%%%%% Part 1 & 3 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 solve_task_1_3(Task,Cost) :-
   agent_current_position(oscar,P),
+  initialise_dynamics(P),
   solve_task_astar(Task,[[state(0,0,P),P]],R,Cost,_NewPos),!,  % prune choice point for efficiency
   reverse(R,[_Init|Path]),
   agent_do_moves(oscar,Path).
@@ -52,47 +63,21 @@ solve_task_astar(Task,Agenda,RR,Cost,NewPos) :-
     Task = go(Target) -> astar_children(Target, P, G, Children, RPath);
     Task = find(_) -> bf_children(P, G, Children, RPath)
   ),
-  add_to_agenda(Children, RestAgenda, NewAgenda),
-  solve_task_astar(Task, NewAgenda, RR, Cost, NewPos).
+  append(Children,RestAgenda, NewAgenda),
+  sort(NewAgenda, SortedAgenda),
+  solve_task_astar(Task, SortedAgenda, RR, Cost, NewPos).
 
 astar_children(Target, P, G, Children, RPath) :-
-  setof(State, (Pos,H) ^ (search(P,Pos,Pos,_), map_distance(Pos,Target,H), generate_state(H,G,Pos,RPath,State)), UnfilteredChildren),
-  filter_children(UnfilteredChildren, RPath, [], Children).
+  findall(State, (search(P,Pos,Pos,_), \+memberchk(Pos, RPath), \+visited(Pos), map_distance(Pos,Target,H), generate_state(H,G,Pos,RPath,State)), Children).
 
 generate_state(H,G,Pos,RPath,State):-
   NewG is G + 1,
   F is NewG + H,
-  State = [state(F,NewG,Pos),Pos|RPath].
+  State = [state(F,NewG,Pos),Pos|RPath],
+  assert(visited(Pos)).
 
 bf_children(P, G, Children, RPath) :-
-  setof(State, (Pos) ^ (search(P,Pos,Pos,_), generate_state(0,G,Pos,RPath,State)), UnfilteredChildren),
-  filter_children(UnfilteredChildren, RPath, [], Children).
-
-filter_children([], _, Children, Children).
-filter_children([Child | Rest], RPath, TempChildren, Children) :-
-  Child = [state(_,_,ChildPos) | _],
-  (
-    \+ memberchk(ChildPos,RPath) -> filter_children(Rest, RPath, [Child | TempChildren], Children);
-    filter_children(Rest, RPath, TempChildren, Children)
-  ).
-
-add_to_agenda([],Agenda,Agenda).
-add_to_agenda([Child|Children],OldAgenda,NewAgenda) :-
-	add_state(Child,OldAgenda,TmpAgenda),
-	add_to_agenda(Children,TmpAgenda,NewAgenda).
-
-add_state(Child,[],[Child]).
-add_state(Child,[Node|Rest],[Child,Node|Rest]) :-
-	Child = [state(ChildF, _, _) | _],
-	Node = [state(NodeF, _, _) | _],
-	ChildF < NodeF.
-
-add_state(Child,[Node|Rest],[Node|NewRest]) :-
-	Child = [state(ChildF, _, _) | _],
-	Node = [state(NodeF, _, _) | _],
-	NodeF =< ChildF,
-	add_state(Child,Rest,NewRest).
-
+  findall(State, (search(P,Pos,Pos,_), \+memberchk(Pos, RPath), \+visited(Pos), generate_state(0,G,Pos,RPath,State)), Children).
 
 achieved(go(Exit),Current,RPath,Cost,NewPos) :-
   Current = [c(Cost,NewPos)|RPath],
