@@ -6,20 +6,93 @@ solve_task(Task,Cost) :-
   ; part(4) -> solve_task_4(Task, Cost)
   ).
 
+:- dynamic 
+  used_internal_objects/1, found/1, bound/1, strategy/1.
 
-%%%% data structure of visited nodes
-:-dynamic visited/1.
-
-initialise_dynamics(P):-
+init_state :-
   reset_dynamics,
-  assert(visited(P)).
+  assert(strategy(normal)),
+  assert(bound(30)).
 
-reset_dynamics :- retractall(visited(_)).
+reset_dynamics :-
+  retractall(used_internal_objects(_)),
+  retractall(found(_)),
+  retractall(bound(_)),
+  retractall(strategy(_)).
+
+reset_bound :-
+  retractall(bound(_)),
+  assert(bound(30)).
+
+start_solving(A) :-
+  reset_dynamics, init_state, find_solution, !, possible_actor(A), say(A).
+
+find_solution :-
+  \+agent_current_energy(oscar, 0),
+  strategy(S),
+  findall(A, possible_actor(A), As),
+  length(As, Len),
+  (
+    Len = 1    -> true;
+    S = normal -> normal_strategy, !;
+    S = critic -> critical_strategy, !
+  ).
+
+close_objects(CurrPos, T, List) :-
+  (
+    T = 'o'   -> findall(Oracle, (findall(obj(AdjPos, Type), map_adjacent(CurrPos, AdjPos, Type), Adjacents), member(Oracle, Adjacents), Oracle=obj(_,o(X)), \+agent_check_oracle(oscar, o(X))), List);
+    T = 'c'   -> findall(Charger, (findall(obj(AdjPos, Type), map_adjacent(CurrPos, AdjPos, Type), Adjacents), member(Charger, Adjacents), Charger=obj(_,c(_))), List);
+    otherwise -> List is []
+  ).
+   
+critical_strategy :-
+  agent_current_position(oscar, Pos),
+  close_objects(Pos, 'c', Chargers),
+  length(Chargers, Len),
+  (
+    Len > 0   -> Chargers = [obj(_, Charger)|_], agent_topup_energy(oscar, Charger), reset_bound;
+    otherwise -> solve_task_1_3(find(c(_)),_)
+  ),
+  check_energy.
+
+unvisited_oracles(Oracles) :-
+  findall(Oracle, (member(X,[1,2,3,4,5,6,7,8,9,10]), Oracle = o(X), \+agent_check_oracle(oscar,Oracle)),Oracles).
+
+normal_strategy :-
+  agent_current_position(oscar, Pos),
+  bound(B), 
+  agent_current_energy(oscar, E),
+  EnergyAfterQuery is E - 10,
+  StrongerBound is B + 10,
+  close_objects(Pos, 'o', Oracles),
+  length(Oracles, Len),
+  writeln(Pos),
+  (
+    EnergyAfterQuery < B            -> retract(bound(_)), assert(bound(StrongerBound)), check_energy;
+    Len > 0, EnergyAfterQuery >= B  -> Oracles = [obj(_, Oracle)|_], query_oracle(Oracle), assert(used_internal_objects(Oracle)),check_energy;
+    otherwise                       -> unvisited_oracles(Unvisited), length(Unvisited, L), (L = 0 -> fail; otherwise -> member(Oracle, Unvisited), solve_task_1_3(find(Oracle), _),!,check_energy)
+  ).
+
+check_energy :-
+  writeln('here'),
+  agent_current_energy(oscar, E), 
+  strategy(S), 
+  bound(B), 
+  (
+    E < B -> (
+      S = normal -> assert(strategy(critic)), retract(strategy(normal)), find_solution;
+      otherwise  -> find_solution
+    );
+    otherwise -> (
+      S = normal -> find_solution;
+      otherwise  -> assert(strategy(normal)), retract(strategy(critic)), find_solution 
+    )
+  ).
 
 %%%%%%%%%% Part 1 & 3 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 solve_task_1_3(Task,Cost) :-
   agent_current_position(oscar,P),
-  initialise_dynamics(P),
+  initialise_visited(P),
   solve_task_astar(Task,[[state(0,0,P),P]],R,Cost,_NewPos),!,  % prune choice point for efficiency
   reverse(R,[_Init|Path]),
   agent_do_moves(oscar,Path).
@@ -51,6 +124,15 @@ solve_task_bt(Task,Current,D,RR,Cost,NewPos) :-
   D1 is D+1,
   F1 is F+C,
   solve_task_bt(Task,[c(F1,P1),R|RPath],D1,RR,Cost,NewPos).  % backtrack search
+
+
+%%%%%%%%%%%%%%Astar search and its data structures%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% data structure of visited nodes
+:-dynamic visited/1.
+
+initialise_visited(P):-
+  retractall(visited(_)),
+  assert(visited(P)).
 
 solve_task_astar(Task,Agenda,R,CostList,NewPos) :-
   Agenda = [[state(_,G,Pos)|RPath]|_],

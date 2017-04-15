@@ -2,6 +2,8 @@
 % find_identity(-A)
 :-dynamic eliminated_actor/1.
 
+reset_possible_actors :-
+  retractall(eliminated_actor(_)).
 
 find_identity(A) :-  
   findall(N, possible_actor(N), Ns),
