@@ -6,8 +6,16 @@ solve_task(Task,Cost) :-
   ; part(4) -> solve_task_4(Task, Cost)
   ).
 
+%%%%%%%%%%%%%%Astar search and its data structures%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% data structure of visited nodes
+:-dynamic visited/1.
+
+initialise_visited(P):-
+  retractall(visited(_)),
+  assert(visited(P)).
+
 :- dynamic 
-  used_internal_objects/1, found/1, bound/1, strategy/1.
+  used_internal_objects/1, found/1, bound/1, strategy/1, oracle/2, charger/2.
 
 init_state :-
   reset_dynamics,
@@ -18,7 +26,10 @@ reset_dynamics :-
   retractall(used_internal_objects(_)),
   retractall(found(_)),
   retractall(bound(_)),
-  retractall(strategy(_)).
+  retractall(strategy(_)),
+  retractall(oracle(_,_)),
+  retractall(charger(_,_)),
+  reset_possible_actors.
 
 reset_bound :-
   retractall(bound(_)),
@@ -126,14 +137,6 @@ solve_task_bt(Task,Current,D,RR,Cost,NewPos) :-
   solve_task_bt(Task,[c(F1,P1),R|RPath],D1,RR,Cost,NewPos).  % backtrack search
 
 
-%%%%%%%%%%%%%%Astar search and its data structures%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%% data structure of visited nodes
-:-dynamic visited/1.
-
-initialise_visited(P):-
-  retractall(visited(_)),
-  assert(visited(P)).
-
 solve_task_astar(Task,Agenda,R,CostList,NewPos) :-
   Agenda = [[state(_,G,Pos)|RPath]|_],
   CostList = [cost(Cost), depth(G)],
@@ -150,7 +153,8 @@ solve_task_astar(Task,Agenda,RR,Cost,NewPos) :-
   solve_task_astar(Task, SortedAgenda, RR, Cost, NewPos).
 
 astar_children(Target, P, G, Children, RPath) :-
-  findall(State, (search(P,Pos,Pos,_), \+memberchk(Pos, RPath), \+visited(Pos), map_distance(Pos,Target,H), generate_state(H,G,Pos,RPath,State)), Children).
+  findall(State, (search(P,Pos,Pos,_), \+memberchk(Pos, RPath), \+visited(Pos), map_distance(Pos,Target,H), generate_state(H,G,Pos,RPath,State)), Children),
+  add_adjacents(P).
 
 generate_state(H,G,Pos,RPath,State):-
   NewG is G + 1,
@@ -159,7 +163,8 @@ generate_state(H,G,Pos,RPath,State):-
   assert(visited(Pos)).
 
 bf_children(P, G, Children, RPath) :-
-  findall(State, (search(P,Pos,Pos,_), \+memberchk(Pos, RPath), \+visited(Pos), generate_state(0,G,Pos,RPath,State)), Children).
+  findall(State, (search(P,Pos,Pos,_), \+memberchk(Pos, RPath), \+visited(Pos), generate_state(0,G,Pos,RPath,State)), Children),
+  add_adjacents(P).
 
 achieved(go(Exit),Current,RPath,Cost,NewPos) :-
   Current = [c(Cost,NewPos)|RPath],
@@ -174,3 +179,16 @@ achieved(find(O),Current,RPath,Cost,NewPos) :-
 
 search(F,N,N,1) :-
   map_adjacent(F,N,empty).
+
+add_adjacents(P) :-
+  findall(N, (map_adjacent(P, N, Type), type_to_pred(Type, N)), _).
+  
+type_to_pred(Type, Pos) :-
+  (
+    Type = o(_), \+oracle(Type, _)  -> assert(oracle(Type, Pos));
+    Type = c(_), \+charger(Type, _) -> assert(charger(Type, Pos));
+    otherwise -> true
+  ).
+
+next_oracle(Curr, Sorted) :-
+  findall(obj(Dist,OID,Neighbours),(oracle(OID,Pos),findall(El,map_adjacent(Pos,El,empty),Neighbours), map_distance(Pos,Curr,Dist)),List),sort(List,Sorted).
