@@ -66,8 +66,15 @@ critical_strategy :-
   ),
   check_energy.
 
-unvisited_oracles(Oracles) :-
-  findall(Oracle, (member(X,[1,2,3,4,5,6,7,8,9,10]), Oracle = o(X), \+agent_check_oracle(oscar,Oracle)),Oracles).
+best_oracle(Curr, NextOracle) :-
+  findall(O, oracle(O,_), KnownOracles),
+  findall(obj(D,Oracle), (oracle(Oracle,P), map_distance(Curr, P, D), \+agent_check_oracle(oscar,Oracle)),Oracles),
+  sort(Oracles, Sorted),
+  length(KnownOracles, Len),
+  (
+    Len = 0   -> first_oracle(Curr,Fastest), Fastest = [path(_,NextOracle,_)|_];
+    otherwise -> Sorted = [obj(_, NextOracle) | _]
+  ).
 
 normal_strategy :-
   agent_current_position(oscar, Pos),
@@ -81,7 +88,7 @@ normal_strategy :-
   (
     EnergyAfterQuery < B            -> retract(bound(_)), assert(bound(StrongerBound)), check_energy;
     Len > 0, EnergyAfterQuery >= B  -> Oracles = [obj(_, Oracle)|_], query_oracle(Oracle), assert(used_internal_objects(Oracle)),check_energy;
-    otherwise                       -> unvisited_oracles(Unvisited), length(Unvisited, L), (L = 0 -> fail; otherwise -> member(Oracle, Unvisited), solve_task_1_3(find(Oracle), _),!,check_energy)
+    otherwise                       -> best_oracle(Pos, Oracle), solve_task_1_3(find(Oracle), _),!,check_energy
   ).
 
 check_energy :-
@@ -190,5 +197,15 @@ type_to_pred(Type, Pos) :-
     otherwise -> true
   ).
 
-next_oracle(Curr, Sorted) :-
+known_oracles(Curr, Sorted) :-
   findall(obj(Dist,OID,Neighbours),(oracle(OID,Pos),findall(El,map_adjacent(Pos,El,empty),Neighbours), map_distance(Pos,Curr,Dist)),List),sort(List,Sorted).
+
+duplicates_find(Res, path(_,X,_), path(_,Y,_)):-
+  compare(Res,X,Y).
+
+first_oracle(P,Fastest) :-
+  initialise_visited(P),
+  findall(path(Cost,o(X),Path),solve_task_astar(find(o(X)),[[state(0,0,P), P]],Path,Cost,_),List),
+  sort(List, CostSorted), %sort based on lowest cost
+  predsort(duplicates_find,CostSorted,Sorted), %keep only one path obj for each entry (the one kept always has lowest cost)
+  sort(Sorted,Fastest). %sort the oracles by lowest cost from start point
