@@ -36,7 +36,7 @@ reset_bound :-
   assert(bound(30)).
 
 start_solving(A) :-
-  reset_dynamics, init_state, find_solution, !, possible_actor(A), show_response(agent(A)).
+  reset_dynamics, init_state, find_solution, !, possible_actor(A), my_agent(Agent), oscar_library:say(Agent,A).
 
 find_solution :-
   my_agent(Agent),
