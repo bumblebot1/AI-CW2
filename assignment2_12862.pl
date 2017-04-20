@@ -36,10 +36,11 @@ reset_bound :-
   assert(bound(30)).
 
 start_solving(A) :-
-  reset_dynamics, init_state, find_solution, !, possible_actor(A), say(A).
+  reset_dynamics, init_state, find_solution, !, possible_actor(A), show_response(agent(A)).
 
 find_solution :-
-  \+agent_current_energy(oscar, 0),
+  my_agent(Agent),
+  \+query_world(agent_current_energy, [Agent, 0]),
   strategy(S),
   findall(A, possible_actor(A), As),
   length(As, Len),
@@ -50,25 +51,28 @@ find_solution :-
   ).
 
 close_objects(CurrPos, T, List) :-
+  my_agent(Agent),
   (
-    T = 'o'   -> findall(Oracle, (findall(obj(AdjPos, Type), map_adjacent(CurrPos, AdjPos, Type), Adjacents), member(Oracle, Adjacents), Oracle=obj(_,o(X)), \+agent_check_oracle(oscar, o(X))), List);
+    T = 'o'   -> findall(Oracle, (findall(obj(AdjPos, Type), map_adjacent(CurrPos, AdjPos, Type), Adjacents), member(Oracle, Adjacents), Oracle=obj(_,o(X)), \+query_world(agent_check_oracle,[Agent, o(X)])), List);
     T = 'c'   -> findall(Charger, (findall(obj(AdjPos, Type), map_adjacent(CurrPos, AdjPos, Type), Adjacents), member(Charger, Adjacents), Charger=obj(_,c(_))), List);
     otherwise -> List is []
   ).
    
 critical_strategy :-
-  agent_current_position(oscar, Pos),
+  my_agent(Agent),
+  query_world(agent_current_position, [Agent, Pos]),
   close_objects(Pos, 'c', Chargers),
   length(Chargers, Len),
   (
-    Len > 0   -> Chargers = [obj(_, Charger)|_], agent_topup_energy(oscar, Charger), reset_bound;
-    otherwise -> solve_task_1_3(find(c(_)),_)
+    Len > 0   -> Chargers = [obj(_, Charger)|_], query_world(agent_topup_energy, [Agent, Charger]), reset_bound;
+    otherwise -> solve_task_4(find(c(_)),_)
   ),
   check_energy.
 
 best_oracle(Curr, NextOracle) :-
+  my_agent(Agent),
   findall(O, oracle(O,_), KnownOracles),
-  findall(obj(D,Oracle), (oracle(Oracle,P), map_distance(Curr, P, D), \+agent_check_oracle(oscar,Oracle)),Oracles),
+  findall(obj(D,Oracle), (oracle(Oracle,P), map_distance(Curr, P, D), \+query_world(agent_check_oracle, [Agent,Oracle])),Oracles),
   sort(Oracles, Sorted),
   length(KnownOracles, Len),
   (
@@ -77,9 +81,10 @@ best_oracle(Curr, NextOracle) :-
   ).
 
 normal_strategy :-
-  agent_current_position(oscar, Pos),
+  my_agent(Agent),
+  query_world(agent_current_position, [Agent, Pos]),
   bound(B), 
-  agent_current_energy(oscar, E),
+  query_world(agent_current_energy, [Agent, E]),
   EnergyAfterQuery is E - 10,
   StrongerBound is B + 10,
   close_objects(Pos, 'o', Oracles),
@@ -88,12 +93,12 @@ normal_strategy :-
   (
     EnergyAfterQuery < B            -> retract(bound(_)), assert(bound(StrongerBound)), check_energy;
     Len > 0, EnergyAfterQuery >= B  -> Oracles = [obj(_, Oracle)|_], query_oracle(Oracle), assert(used_internal_objects(Oracle)),check_energy;
-    otherwise                       -> best_oracle(Pos, Oracle), solve_task_1_3(find(Oracle), _),!,check_energy
+    otherwise                       -> best_oracle(Pos, Oracle), solve_task_4(find(Oracle), _),!,check_energy
   ).
 
 check_energy :-
-  writeln('here'),
-  agent_current_energy(oscar, E), 
+  my_agent(Agent),
+  query_world(agent_current_energy, [Agent, E]), 
   strategy(S), 
   bound(B), 
   (
@@ -125,7 +130,8 @@ solve_task_backtrack(Task,Cost) :-
 solve_task_4(Task,Cost):-
   my_agent(Agent),
   query_world( agent_current_position, [Agent,P] ),
-  solve_task_bt(Task,[c(0,P),P],0,R,Cost,_NewPos),!,  % prune choice point for efficiency
+  initialise_visited(P),
+  solve_task_astar(Task,[[state(0,0,P),P]],R,Cost,_NewPos),!,  % prune choice point for efficiency
   reverse(R,[_Init|Path]),
   query_world( agent_do_moves, [Agent,Path] ).
 %%%%%%%%%% Part 4 (Optional) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

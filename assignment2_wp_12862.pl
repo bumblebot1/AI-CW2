@@ -15,7 +15,8 @@ find_identity(A) :-
   retractall(eliminated_actor(_)).
 
 query_oracle(Oracle) :-
-  agent_ask_oracle(oscar, Oracle, link, RandomLink),
+  my_agent(Agent),
+  query_world(agent_ask_oracle, [Agent, Oracle, link, RandomLink]),
   findall(N, possible_actor(N), Ns),
   maplist(get_wiki(RandomLink), Ns).
 
