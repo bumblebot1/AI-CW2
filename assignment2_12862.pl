@@ -40,15 +40,15 @@ start_solving(A) :-
 
 find_solution :-
   my_agent(Agent),
-  \+query_world(agent_current_energy, [Agent, 0]),
+  query_world(agent_current_energy, [Agent, C]), 
+  C \= 0,
   strategy(S),
   findall(A, possible_actor(A), As),
   length(As, Len),
   (
     Len = 1    -> true;
-    S = normal -> normal_strategy, !;
-    S = critic -> critical_strategy, !
-  ).
+    otherwise -> ( S = normal -> normal_strategy; S = critic -> critical_strategy)
+  ), !.
 
 close_objects(CurrPos, T, List) :-
   my_agent(Agent),
@@ -134,9 +134,8 @@ solve_task_4(Task,Cost):-
   solve_task_astar(Task,[[state(0,0,P),P]],R,Cost,_NewPos),!,  % prune choice point for efficiency
   reverse(R,[_Init|Path]),
   (
-    query_world(agent_do_moves, [Agent,Path])->true;
-    query_world(agent_current_energy, [Agent, 0]) -> !,fail;
-    otherwise->writeln('replanning'),solve_task_4(Task,_)
+    query_world(agent_do_moves, [Agent,Path])-> true;
+    otherwise->writeln('replanning'),( query_world(agent_current_energy, [Agent, C]), C = 0 -> writeln('can\'t replan, no energy'),!,fail; otherwise -> solve_task_4(Task,_))
   ).
 %%%%%%%%%% Part 4 (Optional) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
