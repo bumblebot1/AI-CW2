@@ -133,7 +133,11 @@ solve_task_4(Task,Cost):-
   initialise_visited(P),
   solve_task_astar(Task,[[state(0,0,P),P]],R,Cost,_NewPos),!,  % prune choice point for efficiency
   reverse(R,[_Init|Path]),
-  query_world( agent_do_moves, [Agent,Path] ).
+  (
+    query_world(agent_do_moves, [Agent,Path])->true;
+    query_world(agent_current_energy, [Agent, 0]) -> !,fail;
+    otherwise->writeln('replanning'),solve_task_4(Task,_)
+  ).
 %%%%%%%%%% Part 4 (Optional) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
