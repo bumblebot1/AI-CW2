@@ -136,7 +136,7 @@ best_oracle(Curr, NextOracle) :-
   ).
 
 best_charger(Curr, NextCharger) :-
-  findall(obj(D,Charger), (charger(Charger,P), initialise_visited(Curr), solve_task_astar(find(Charger),[[state(0,0,Curr), Curr]],_,D,_)), Chargers),
+  findall(obj(D,Charger), (charger(Charger,P), initialise_visited(Curr), map_distance(Curr, P, D)), Chargers),
   sort(Chargers,Sorted),
   length(Sorted, Len),
   (
