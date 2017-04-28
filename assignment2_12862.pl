@@ -69,7 +69,7 @@ topup_energy(P) :-
         reverse(R,[_Init|Path]),
         (
           query_world(agent_do_moves, [Agent, Path]) -> query_world(agent_topup_energy, [Agent, c(X)]);
-          otherwise -> writeln('replanning'), (query_world(agent_current_energy, [Agent, E]), E = 0 -> writeln('can\'t replan, no energy'), !, fail; otherwise -> query_world(agent_current_position, [Agent, Pos]), topup_energy(Pos,_))
+          otherwise -> writeln('replanning'), (query_world(agent_current_energy, [Agent, E]), E = 0 -> writeln('can\'t replan, no energy'), !, fail; otherwise -> query_world(agent_current_position, [Agent, Pos]), topup_energy(Pos))
         )
       )
   ).
