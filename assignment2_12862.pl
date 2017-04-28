@@ -17,14 +17,13 @@ initialise_visited(P):-
 %%%%%%%%%% Part 1 & 3 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 solve_task_1_3(Task, RealCost) :-
   agent_current_position(oscar,P),
-  agent_current_energy(oscar, E),
-  Bound is E - 30,
+  agent_current_energy(oscar, Energy),
   initialise_visited(P),
   solve_task_astar(Task,[[state(0,0,P),P]],R,Cost,_NewPos),!,  % prune choice point for efficiency
   Cost = [cost(C)|_],
   writeln(C),
   (
-    C > Bound -> topup_energy(P), solve_task_1_3(Task, RealCost);
+    Energy - C < 20, Task \= c(_) -> topup_energy(P), solve_task_1_3(Task, RealCost);
     otherwise -> reverse(R,[_Init|Path]), agent_do_moves(oscar,Path), RealCost = Cost
   ).
 
@@ -48,8 +47,9 @@ solve_task_4(Task,Cost):-
 %%%%%%%%%% Part 4 (Optional) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 topup_energy(P) :-
+  writeln('topping up'),
   initialise_visited(P),
-  solve_task_astar(find(c(X)),[[state(0,0,P),P]],R,Cost,_NewPos), !,
+  solve_task_astar(find(c(X)),[[state(0,0,P),P]],R,_,_NewPos), !,
   reverse(R,[_Init|Path]),
   agent_do_moves(oscar,Path),
   agent_topup_energy(oscar, c(X)).
@@ -113,3 +113,13 @@ achieved(find(O),Current,RPath,Cost,NewPos) :-
 
 search(F,N,N,1) :-
   map_adjacent(F,N,empty).
+
+add_adjacents(P) :-
+  findall(N, (map_adjacent(P, N, Type), type_to_pred(Type, N)), _).
+
+type_to_pred(Type, Pos) :-
+  (
+    Type = o(_) -> retractall(oracle(Type, _)), assert(oracle(Type, Pos));
+    Type = c(_) -> retractall(charger(Type, _)), assert(charger(Type, Pos));
+    otherwise -> true
+  ).

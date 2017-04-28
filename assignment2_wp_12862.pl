@@ -6,10 +6,13 @@ reset_possible_actors :-
   retractall(eliminated_actor(_)).
 
 query_oracle(Oracle) :-
-  writeln('Querying'),
   (
+    part(2) -> (
+      agent_ask_oracle(oscar, Oracle, link, RandomLink),
+      findall(N, possible_actor(N), Ns),
+      maplist(get_wiki(RandomLink), Ns)
+    );
     part(3) -> (
-        writeln(Oracle),
         agent_ask_oracle(oscar, Oracle, link, RandomLink),
         findall(N, possible_actor(N), Ns),
         maplist(get_wiki(RandomLink), Ns)
@@ -39,7 +42,7 @@ possible_actor(A) :-
 %%%%%%%%%%%%%%%%%Predicates to solve the maze and find identity%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-:- dynamic 
+:- dynamic
   used_internal_objects/1, found/1, bound/1, strategy/1, oracle/2, charger/2.
 
 init_state :-
@@ -62,6 +65,15 @@ reset_bound :-
 
 find_identity(A) :-
   (
+    part(2) -> (
+      findall(N, possible_actor(N), Ns),
+      length(Ns, Len),
+      (
+        Len = 1 -> possible_actor(A);
+        otherwise -> query_oracle(o(1)), find_identity(A)
+      ),!,
+      retractall(eliminated_actor(_))
+    );
     part(3) -> reset_dynamics, init_state, find_solution, !, possible_actor(A), say(A);
     part(4) -> reset_dynamics, init_state, find_solution, !, possible_actor(A)
   ).
@@ -69,7 +81,7 @@ find_identity(A) :-
 find_solution :-
   (
     part(3) -> (
-        agent_current_energy(oscar, C), 
+        agent_current_energy(oscar, C),
         C \= 0,
         strategy(S),
         findall(A, possible_actor(A), As),
@@ -81,7 +93,7 @@ find_solution :-
       );
     part(4) -> (
         my_agent(Agent),
-        query_world(agent_current_energy, [Agent, C]), 
+        query_world(agent_current_energy, [Agent, C]),
         C \= 0,
         strategy(S),
         findall(A, possible_actor(A), As),
@@ -108,7 +120,7 @@ close_objects(CurrPos, T, List) :-
           otherwise -> List = []
         )
       )
-  ).   
+  ).
 
 best_oracle(Curr, NextOracle) :-
   (
@@ -147,9 +159,9 @@ best_charger(Curr, NextCharger) :-
 check_energy :-
   (
     part(3) -> (
-        agent_current_energy(oscar, E), 
-        strategy(S), 
-        bound(B), 
+        agent_current_energy(oscar, E),
+        strategy(S),
+        bound(B),
         (
           E < B -> (
             S = normal -> assert(strategy(critic)), retract(strategy(normal)), retractall(bound(_)), assert(bound(30)), find_solution;
@@ -157,15 +169,15 @@ check_energy :-
           );
           otherwise -> (
             S = normal -> find_solution;
-            otherwise  -> assert(strategy(normal)), retract(strategy(critic)), find_solution 
+            otherwise  -> assert(strategy(normal)), retract(strategy(critic)), find_solution
           )
         )
       );
     part(4) -> (
         my_agent(Agent),
-        query_world(agent_current_energy, [Agent, E]), 
-        strategy(S), 
-        bound(B), 
+        query_world(agent_current_energy, [Agent, E]),
+        strategy(S),
+        bound(B),
         (
           E < B -> (
             S = normal -> assert(strategy(critic)), retract(strategy(normal)), retractall(bound(_)), assert(bound(30)), find_solution;
@@ -173,7 +185,7 @@ check_energy :-
           );
           otherwise -> (
             S = normal -> find_solution;
-            otherwise  -> assert(strategy(normal)), retract(strategy(critic)), find_solution 
+            otherwise  -> assert(strategy(normal)), retract(strategy(critic)), find_solution
           )
         )
       )
@@ -183,7 +195,7 @@ normal_strategy :-
   (
     part(3) -> (
         agent_current_position(oscar, Pos),
-        bound(B), 
+        bound(B),
         agent_current_energy(oscar, E),
         EnergyAfterQuery is E - 10,
         StrongerBound is B + 10,
@@ -200,7 +212,7 @@ normal_strategy :-
     part(4) -> (
         my_agent(Agent),
         query_world(agent_current_position, [Agent, Pos]),
-        bound(B), 
+        bound(B),
         query_world(agent_current_energy, [Agent, E]),
         EnergyAfterQuery is E - 10,
         StrongerBound is B + 10,
@@ -238,16 +250,6 @@ critical_strategy :-
         ),
         check_energy
       )
-  ).
-
-add_adjacents(P) :-
-  findall(N, (map_adjacent(P, N, Type), type_to_pred(Type, N)), _).
-  
-type_to_pred(Type, Pos) :-
-  (
-    Type = o(_) -> retractall(oracle(Type, _)), assert(oracle(Type, Pos));
-    Type = c(_) -> retractall(charger(Type, _)), assert(charger(Type, Pos));
-    otherwise -> true
   ).
 
 known_oracles(Curr, Sorted) :-
