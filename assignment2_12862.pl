@@ -23,7 +23,7 @@ solve_task_1_3(Task, RealCost) :-
   Cost = [cost(C)|_],
   writeln(C),
   (
-    Energy - C < 20, Task \= c(_) -> topup_energy(P), solve_task_1_3(Task, RealCost);
+    Energy - C < 20, Task \= c(_) -> topup_energy(P, [cost(Dist)|_]), solve_task_1_3(Task, [cost(TaskDist)|_]), RealCost is Dist + TaskDist;
     otherwise -> reverse(R,[_Init|Path]), agent_do_moves(oscar,Path), RealCost = Cost
   ).
 
@@ -46,10 +46,10 @@ solve_task_4(Task,Cost):-
   ).
 %%%%%%%%%% Part 4 (Optional) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-topup_energy(P) :-
+topup_energy(P, Cost) :-
   writeln('topping up'),
   initialise_visited(P),
-  solve_task_astar(find(c(X)),[[state(0,0,P),P]],R,_,_NewPos), !,
+  solve_task_astar(find(c(X)),[[state(0,0,P),P]],R,Cost,_NewPos), !,
   reverse(R,[_Init|Path]),
   agent_do_moves(oscar,Path),
   agent_topup_energy(oscar, c(X)).
