@@ -63,7 +63,7 @@ reset_bound :-
 find_identity(A) :-
   (
     part(3) -> reset_dynamics, init_state, find_solution, !, possible_actor(A), say(A);
-    part(4) -> reset_dynamics, init_state, find_solution, !, possible_actor(A), my_agent(Agent), oscar_library:say(Agent,A) 
+    part(4) -> reset_dynamics, init_state, find_solution, !, possible_actor(A)
   ).
 
 find_solution :-
@@ -135,6 +135,15 @@ best_oracle(Curr, NextOracle) :-
       )
   ).
 
+best_charger(Curr, NextCharger) :-
+  findall(obj(D,Charger), (charger(Charger,P), initialise_visited(Curr), solve_task_astar(find(Charger),[[state(0,0,Curr), Curr]],_,D,_)), Chargers),
+  sort(Chargers,Sorted),
+  length(Sorted, Len),
+  (
+    Len = 0   -> first_charger(Curr, Fastest), Fastest = [path(_,NextCharger,_)|_];
+    otherwise -> Sorted = [obj(_, NextCharger) | _]
+  ).
+
 check_energy :-
   (
     part(3) -> (
@@ -185,7 +194,7 @@ normal_strategy :-
         (
           EnergyAfterQuery < B            -> retract(bound(_)), assert(bound(StrongerBound)), check_energy;
           Len > 0, EnergyAfterQuery >= B  -> Oracles = [obj(_, Oracle)|_], query_oracle(Oracle), assert(used_internal_objects(Oracle)), check_energy;
-          otherwise                       -> best_oracle(Pos, Oracle), solve_task_1_3(find(Oracle), _),!,check_energy
+          otherwise                       -> best_oracle(Pos, Oracle), solve_task_1_3(find(Oracle), _),check_energy
         )
       );
     part(4) -> (
@@ -201,7 +210,7 @@ normal_strategy :-
         (
           EnergyAfterQuery < B            -> retract(bound(_)), assert(bound(StrongerBound)), check_energy;
           Len > 0, EnergyAfterQuery >= B  -> Oracles = [obj(_, Oracle)|_], query_oracle(Oracle), assert(used_internal_objects(Oracle)),check_energy;
-          otherwise                       -> best_oracle(Pos, Oracle), solve_task_4(find(Oracle), _),!,check_energy
+          otherwise                       -> best_oracle(Pos, Oracle), (solve_task_4(find(Oracle), _) -> true; otherwise -> retractall(oracle(Oracle,_))),check_energy
         )
       )
   ).
@@ -214,7 +223,7 @@ critical_strategy :-
         length(Chargers, Len),
         (
           Len > 0   -> Chargers = [obj(_, Charger)|_], agent_topup_energy(oscar, Charger), reset_bound;
-          otherwise -> solve_task_1_3(find(c(X)),_), !, agent_topup_energy(oscar, c(X))
+          otherwise -> best_charger(Pos, Charger), solve_task_1_3(find(Charger),_), agent_topup_energy(oscar, Charger)
         ),
         check_energy
       );
@@ -225,7 +234,7 @@ critical_strategy :-
         length(Chargers, Len),
         (
           Len > 0   -> Chargers = [obj(_, Charger)|_], query_world(agent_topup_energy, [Agent, Charger]), reset_bound;
-          otherwise -> solve_task_4(find(c(X)),_), !, query_world(agent_topup_energy, [Agent, c(X)])
+          otherwise -> best_charger(Pos, Charger), (solve_task_4(find(Charger),_) -> query_world(agent_topup_energy, [Agent, Charger]); otherwise -> retractall(charger(Charger, _)))
         ),
         check_energy
       )
@@ -236,8 +245,8 @@ add_adjacents(P) :-
   
 type_to_pred(Type, Pos) :-
   (
-    Type = o(_), \+oracle(Type, _)  -> assert(oracle(Type, Pos));
-    Type = c(_), \+charger(Type, _) -> assert(charger(Type, Pos));
+    Type = o(_) -> retractall(oracle(Type, _)), assert(oracle(Type, Pos));
+    Type = c(_) -> retractall(charger(Type, _)), assert(charger(Type, Pos));
     otherwise -> true
   ).
 
@@ -249,8 +258,13 @@ duplicates_find(Res, path(_,X,_), path(_,Y,_)):-
   compare(Res,X,Y).
 
 first_oracle(P,Fastest) :-
-  initialise_visited(P),
-  findall(path(Cost,o(X),Path),solve_task_astar(find(o(X)),[[state(0,0,P), P]],Path,Cost,_),List),
+  findall(path(Cost,o(X),Path), (initialise_visited(P), solve_task_astar(find(o(X)),[[state(0,0,P), P]],Path,Cost,_)), List),
   sort(List, CostSorted), %sort based on lowest cost
   predsort(duplicates_find,CostSorted,Sorted), %keep only one path obj for each entry (the one kept always has lowest cost)
   sort(Sorted,Fastest). %sort the oracles by lowest cost from start point
+
+first_charger(P, Fastest) :-
+  findall(path(Cost,c(X),Path),(initialise_visited(P), solve_task_astar(find(c(X)),[[state(0,0,P), P]],Path,Cost,_)),List),
+  sort(List, CostSorted), %sort based on lowest cost
+  predsort(duplicates_find,CostSorted,Sorted), %keep only one path obj for each entry (the one kept always has lowest cost)
+  sort(Sorted,Fastest). %sort the chargers by lowest cost from start point
