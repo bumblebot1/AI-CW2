@@ -22,7 +22,7 @@ solve_task_1_3(Task, Cost) :-
   solve_task_astar(Task,[[state(0,0,P),P]],R,Cost,_NewPos),!,  % prune choice point for efficiency
   Cost = [cost(C)|_],
   (
-    Energy - C < 20, Task \= c(_) -> topup_energy(P), solve_task_1_3(Task, _);
+    Energy - C < 20 -> topup_energy(P), solve_task_1_3(Task, _);
     otherwise -> reverse(R,[_Init|Path]), agent_do_moves(oscar,Path)
   ).
 
@@ -41,7 +41,7 @@ solve_task_4(Task,Cost):-
   solve_task_astar(Task,[[state(0,0,P),P]],R,Cost,_NewPos),!,  % prune choice point for efficiency
   Cost = [cost(C)|_],
   (
-    Energy - C < 20, Task \= c(_) -> topup_energy(P), solve_task_4(Task, _);
+    Energy - C < 20 -> topup_energy(P), solve_task_4(Task, _);
     otherwise -> (
       reverse(R,[_Init|Path]),
       (
