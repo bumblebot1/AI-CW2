@@ -201,8 +201,6 @@ normal_strategy :-
         StrongerBound is B + 10,
         close_objects(Pos, 'o', Oracles),
         length(Oracles, Len),
-        writeln(Pos),
-        writeln(Len),
         (
           EnergyAfterQuery < B            -> retract(bound(_)), assert(bound(StrongerBound)), check_energy;
           Len > 0, EnergyAfterQuery >= B  -> Oracles = [obj(_, Oracle)|_], query_oracle(Oracle), assert(used_internal_objects(Oracle)), check_energy;
@@ -218,7 +216,6 @@ normal_strategy :-
         StrongerBound is B + 10,
         close_objects(Pos, 'o', Oracles),
         length(Oracles, Len),
-        writeln(Pos),
         (
           EnergyAfterQuery < B            -> retract(bound(_)), assert(bound(StrongerBound)), check_energy;
           Len > 0, EnergyAfterQuery >= B  -> Oracles = [obj(_, Oracle)|_], query_oracle(Oracle), assert(used_internal_objects(Oracle)),check_energy;

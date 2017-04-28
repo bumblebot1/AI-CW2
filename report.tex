@@ -26,16 +26,19 @@
     moves to the target had actually been made or wether a new route was needed.
     In this manner, the agent atempts to replan his journey to a target every time
     it encounters a new obstacle along his previously planned path.
+        I have also tested in conditions with multiple agents and the search worked in 
+    such cases as well.
 
     \indent My strategy has its limitations. If the agent starts trapped
-    from the start then the identity search will fail since the agent believes there 
-    are no oracles to be found. Additionally, if the agent becomes surrounded as a result of environment
-    changes the search will fail.
+    from the start or if there are no reacheable oracles anymore then the identity search will fail since 
+    the agent believes there are no more oracles to be found. Additionally, if the agent becomes surrounded 
+    as a result of environment changes the search will also fail.
 
     \indent A few possible improvements could be:
     \begin{enumerate}
-        \item Introducing a fixed number of trials for the search for when the agent is surrounded and can not find oracles or charging stations (rather than just failing)
-        \item In the case when there are no oracles directly reacheable, the agent could try to map out the reacheable area(looking for charging stations for instance) until an oracle becomes reacheable
+        \item Introducing a fixed number of trials(possibly launching each trial after a certain amount of time) for the search for when the agent is surrounded and can not find oracles or charging stations (rather than just failing).
+        \item In the case when there are no oracles directly reacheable, the agent could try to map out the reacheable area(looking for charging stations for instance) until an oracle becomes reacheable.
+        \item In the case when the agent knows of further oracles to be queried and becomes trapped it could enter a waiting loop until it becomes free to move again.
     \end{enumerate}
 
 \end{document}
