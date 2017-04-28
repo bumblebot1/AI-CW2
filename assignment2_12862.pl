@@ -15,12 +15,18 @@ initialise_visited(P):-
   assert(visited(P)).
 
 %%%%%%%%%% Part 1 & 3 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-solve_task_1_3(Task,Cost) :-
+solve_task_1_3(Task, RealCost) :-
   agent_current_position(oscar,P),
+  agent_current_energy(oscar, E),
+  Bound is E - 30,
   initialise_visited(P),
   solve_task_astar(Task,[[state(0,0,P),P]],R,Cost,_NewPos),!,  % prune choice point for efficiency
-  reverse(R,[_Init|Path]),
-  agent_do_moves(oscar,Path).
+  Cost = [cost(C)|_],
+  writeln(C),
+  (
+    C > Bound -> topup_energy(P), solve_task_1_3(Task, RealCost);
+    otherwise -> reverse(R,[_Init|Path]), agent_do_moves(oscar,Path), RealCost = Cost
+  ).
 
 solve_task_backtrack(Task,Cost) :-
   agent_current_position(oscar,P),
@@ -41,6 +47,12 @@ solve_task_4(Task,Cost):-
   ).
 %%%%%%%%%% Part 4 (Optional) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+topup_energy(P) :-
+  initialise_visited(P),
+  solve_task_astar(find(c(X)),[[state(0,0,P),P]],R,Cost,_NewPos), !,
+  reverse(R,[_Init|Path]),
+  agent_do_moves(oscar,Path),
+  agent_topup_energy(oscar, c(X)).
 
 %%%%%%%%%% Useful predicates %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% backtracking depth-first search, needs to be changed to agenda-based A*
