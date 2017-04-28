@@ -15,16 +15,15 @@ initialise_visited(P):-
   assert(visited(P)).
 
 %%%%%%%%%% Part 1 & 3 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-solve_task_1_3(Task, RealCost) :-
+solve_task_1_3(Task, Cost) :-
   agent_current_position(oscar,P),
   agent_current_energy(oscar, Energy),
   initialise_visited(P),
   solve_task_astar(Task,[[state(0,0,P),P]],R,Cost,_NewPos),!,  % prune choice point for efficiency
   Cost = [cost(C)|_],
-  writeln(C),
   (
-    Energy - C < 20, Task \= c(_) -> topup_energy(P, [cost(Dist)|_]), solve_task_1_3(Task, [cost(TaskDist)|_]), RealCost is Dist + TaskDist;
-    otherwise -> reverse(R,[_Init|Path]), agent_do_moves(oscar,Path), RealCost = Cost
+    Energy - C < 20, Task \= c(_) -> topup_energy(P), solve_task_1_3(Task, _);
+    otherwise -> reverse(R,[_Init|Path]), agent_do_moves(oscar,Path)
   ).
 
 solve_task_backtrack(Task,Cost) :-
@@ -37,22 +36,43 @@ solve_task_backtrack(Task,Cost) :-
 solve_task_4(Task,Cost):-
   my_agent(Agent),
   query_world( agent_current_position, [Agent,P] ),
+  query_world( agent_current_energy, [Agent, Energy]),
   initialise_visited(P),
   solve_task_astar(Task,[[state(0,0,P),P]],R,Cost,_NewPos),!,  % prune choice point for efficiency
-  reverse(R,[_Init|Path]),
+  Cost = [cost(C)|_],
   (
-    query_world(agent_do_moves, [Agent,Path])-> true;
-    otherwise->writeln('replanning'),( query_world(agent_current_energy, [Agent, C]), C = 0 -> writeln('can\'t replan, no energy'),!,fail; otherwise -> solve_task_4(Task,_))
+    Energy - C < 20, Task \= c(_) -> topup_energy(P), solve_task_4(Task, _);
+    otherwise -> (
+      reverse(R,[_Init|Path]),
+      (
+        query_world(agent_do_moves, [Agent,Path])-> true;
+        otherwise->writeln('replanning'),( query_world(agent_current_energy, [Agent, C]), C = 0 -> writeln('can\'t replan, no energy'),!,fail; otherwise -> solve_task_4(Task,_))
+      )
+    )
   ).
 %%%%%%%%%% Part 4 (Optional) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-topup_energy(P, Cost) :-
+topup_energy(P) :-
   writeln('topping up'),
-  initialise_visited(P),
-  solve_task_astar(find(c(X)),[[state(0,0,P),P]],R,Cost,_NewPos), !,
-  reverse(R,[_Init|Path]),
-  agent_do_moves(oscar,Path),
-  agent_topup_energy(oscar, c(X)).
+  (
+    part(3) -> (
+        initialise_visited(P),
+        solve_task_astar(find(c(X)),[[state(0,0,P),P]],R,_Cost,_NewPos), !,
+        reverse(R,[_Init|Path]),
+        agent_do_moves(oscar,Path),
+        agent_topup_energy(oscar, c(X))
+      );
+    part(4) -> (
+        initialise_visited(P),
+        solve_task_astar(find(c(X)),[[state(0,0,P),P]],R,_Cost,_NewPos), !,
+        my_agent(Agent),
+        reverse(R,[_Init|Path]),
+        (
+          query_world(agent_do_moves, [Agent, Path]) -> query_world(agent_topup_energy, [Agent, c(X)]);
+          otherwise -> (query_world(agent_current_energy, [Agent, E]), E = 0 -> writeln('can\'t replan, no energy'), !, fail; otherwise -> query_world(agent_current_position(Agent, Pos)), topup_energy(Pos,_))
+        )
+      )
+  ).
 
 %%%%%%%%%% Useful predicates %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% backtracking depth-first search, needs to be changed to agenda-based A*
